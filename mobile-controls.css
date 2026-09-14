@@ -1,0 +1,609 @@
+html,body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overscroll-behavior: none
+}
+
+header {
+  padding-top: env(safe-area-inset-top);
+  z-index: 6
+}
+
+#fullscreenBtn {
+  white-space: nowrap
+}
+
+#fullscreenBtn span {
+  font-size: 14px
+}
+
+.touch-controls {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  z-index: 5
+}
+
+.wheel-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center
+}
+
+.control-caption {
+  font-size: 14px;
+  color: #e3eaeb;
+  text-shadow: 0 2px 3px #000
+}
+
+#steeringWheel {
+  width: 148px;
+  height: 148px;
+  touch-action: none;
+  cursor: grab;
+  outline-offset: 2px;
+  border-radius: 50%;
+  flex-shrink: 0
+}
+
+#steeringWheel.held {
+  cursor: grabbing
+}
+
+#wheelGraphic {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform-origin: 50% 50%;
+  transition: transform .18s ease-out;
+  filter: drop-shadow(0 5px 7px #0008)
+}
+
+.held #wheelGraphic {
+  transition: none
+}
+
+.touch-controls .pedal-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px
+}
+
+.pedal-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px
+}
+
+.drive-gears {
+  display: flex;
+  gap: 6px;
+  align-self: flex-end
+}
+
+.touch-controls .drive-gears button {
+  width: 46px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  background: #112a36ed;
+  border: 1px solid #758993
+}
+
+.touch-controls .drive-gears .selected {
+  background: #ffd13c;
+  color: #142e35
+}
+
+.touch-controls button.pedal {
+  width: 68px;
+  min-height: 0;
+  height: 110px;
+  padding: 9px 5px 7px;
+  border: 2px solid #b6c2c9;
+  border-radius: 14px 14px 10px 10px;
+  background: linear-gradient(110deg,#87959e,#3a4c57 52%,#778992);
+  box-shadow: 0 5px 0 #12242d,0 8px 16px #0006;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 1px 3px #000;
+  touch-action: none;
+  transform: none;
+  flex-shrink: 0
+}
+
+.touch-controls button.gas {
+  height: 132px;
+  width: 62px;
+  border-color: #ffe087;
+  background: linear-gradient(110deg,#d4b851,#77672f 52%,#cbb15a)
+}
+
+.pedal-tread {
+  display: block;
+  width: 80%;
+  height: 65%;
+  border-radius: 5px;
+  background: repeating-linear-gradient(0deg,#14252cc9 0 5px,#c7d2d140 5px 8px);
+  border: 1px solid #0b1b2680
+}
+
+.touch-controls button.pedal.held {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #12242d;
+  filter: brightness(1.25)
+}
+
+.touch-controls button.brake.held {
+  border-color: #ff8d7e
+}
+
+.touch-controls button.gas.held {
+  border-color: #fff2b3
+}
+
+@media(max-width: 1000px),(pointer:coarse) {
+  .touch-controls {
+      position:fixed;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      left: max(12px,env(safe-area-inset-left));
+      right: max(12px,env(safe-area-inset-right));
+      bottom: calc(14px + env(safe-area-inset-bottom));
+      pointer-events: none
+  }
+
+  .touch-controls>div {
+      pointer-events: auto;
+      gap: 3px
+  }
+
+  .touch-controls .pedal-area {
+      gap: 8px
+  }
+
+  .bottom-left {
+      top: calc(60px + env(safe-area-inset-top));
+      bottom: auto;
+      left: max(12px,env(safe-area-inset-left));
+      width: 118px
+  }
+
+  .map canvas {
+      height: 76px
+  }
+
+  .stats {
+      top: calc(60px + env(safe-area-inset-top));
+      right: 12px
+  }
+
+  .vehicle-panel {
+      top: calc(104px + env(safe-area-inset-top));
+      bottom: auto;
+      left: auto;
+      right: 12px;
+      transform: none;
+      width: 124px
+  }
+
+  .vehicle-panel .speed>span {
+      display: block
+  }
+
+  .vehicle-panel #vehicleChoices {
+      top: calc(100% + 10px);
+      bottom: auto;
+      left: auto;
+      right: 0;
+      transform: none;
+      width: min(370px,calc(100vw - 24px));
+      max-height: 55dvh;
+      overflow: auto
+  }
+
+  #orders,#orders.expanded {
+      bottom: calc(206px + env(safe-area-inset-bottom));
+      left: 12px;
+      right: 12px;
+      width: auto;
+      min-height: 58px;
+      max-height: calc(100dvh - 280px)
+  }
+
+  #orders.expanded {
+      z-index: 7
+  }
+
+  #orders:not(.expanded) h1 {
+      display: block;
+      font-size: 14px;
+      margin-right: 170px
+  }
+
+  #orders:not(.expanded) #action {
+      width: 130px;
+      font-size: 14px;
+      min-height: 42px;
+      right: 9px;
+      left: auto
+  }
+
+  #orders:not(.expanded) #orderDetails {
+      width: 32px;
+      right: 145px;
+      left: auto
+  }
+
+  #challengeStatus {
+      top: auto;
+      bottom: calc(278px + env(safe-area-inset-bottom));
+      max-width: calc(100vw - 24px);
+      font-size: 14px
+  }
+
+  .bottom-left.large-map {
+      top: calc(60px + env(safe-area-inset-top));
+      width: calc(100vw - 24px);
+      left: 12px;
+      z-index: 8
+  }
+
+  #toast {
+      z-index: 9;
+      max-width: calc(100vw - 24px)
+  }
+}
+
+@media(orientation: portrait) and (max-width:1000px) {
+  .brand b {
+      font-size:14px
+  }
+
+  .brand-icon {
+      display: none
+  }
+
+  header {
+      left: 12px;
+      right: 12px;
+      gap: 5px
+  }
+
+  .top-actions {
+      gap: 4px
+  }
+
+  .top-actions button {
+      min-height: 42px;
+      min-width: 42px;
+      padding: 6px
+  }
+
+  #fullscreenBtn span {
+      font-size: 14px
+  }
+
+  #orders:not(.expanded) h1 {
+      margin-right: 168px;
+      max-height: 42px
+  }
+
+  .touch-controls #steeringWheel {
+      width: clamp(128px,40vw,172px);
+      height: clamp(128px,40vw,172px)
+  }
+}
+
+@media(orientation: landscape) and (max-height:600px) {
+  .touch-controls #steeringWheel {
+      width:120px;
+      height: 120px
+  }
+
+  .control-caption {
+      display: none
+  }
+
+  .touch-controls button.pedal {
+      height: 85px;
+      width: 65px
+  }
+
+  .touch-controls button.gas {
+      height: 102px;
+      width: 57px
+  }
+
+  .touch-controls .drive-gears button {
+      height: 36px;
+      min-height: 36px
+  }
+
+  .touch-controls {
+      bottom: calc(10px + env(safe-area-inset-bottom))
+  }
+
+  .stats {
+      display: none
+  }
+
+  .vehicle-panel {
+      top: calc(58px + env(safe-area-inset-top));
+      width: 120px
+  }
+
+  .bottom-left {
+      width: 110px;
+      top: calc(55px + env(safe-area-inset-top))
+  }
+
+  .map canvas {
+      height: 62px
+  }
+
+  #orders,#orders.expanded {
+      left: 150px;
+      right: 165px;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      max-height: calc(100dvh - 76px)
+  }
+
+  #orders:not(.expanded) h1 {
+      display: none
+  }
+
+  #orders:not(.expanded) #action {
+      width: calc(100% - 53px)
+  }
+
+  #orders:not(.expanded) #orderDetails {
+      left: 5px;
+      right: auto
+  }
+
+  #challengeStatus {
+      top: calc(58px + env(safe-area-inset-top));
+      bottom: auto;
+      max-width: calc(100vw - 290px)
+  }
+}
+
+@media(max-width: 360px) and (orientation:portrait) {
+  .brand b {
+      font-size:12px
+  }
+
+  .touch-controls {
+      left: 8px;
+      right: 8px
+  }
+
+  .pedal-row {
+      gap: 8px
+  }
+
+  .touch-controls button.pedal {
+      width: 62px
+  }
+
+  .touch-controls button.gas {
+      width: 56px
+  }
+
+  #orders:not(.expanded) h1 {
+      display: none
+  }
+
+  #orders:not(.expanded) #action {
+      width: calc(100% - 55px)
+  }
+
+  #orders:not(.expanded) #orderDetails {
+      left: 6px;
+      right: auto
+  }
+}
+
+.touch-controls .arrow-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  align-self: flex-end;
+  padding-bottom: 16px
+}
+
+.touch-controls .arrow-controls button {
+  width: 62px;
+  height: 66px;
+  font-size: 28px;
+  border: 1px solid #a2b4bd;
+  background: #132e3aeb;
+  touch-action: none
+}
+
+.touch-controls .arrow-controls button.held {
+  background: #ffd13c;
+  color: #142e35
+}
+
+.touch-controls .tilt-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 148px;
+  min-height: 148px;
+  padding: 10px 5px;
+  border: 1px solid #8da6b075;
+  border-radius: 16px;
+  background: #10252ed9
+}
+
+.tilt-controls #tiltStatus {
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.5
+}
+
+.touch-controls #calibrateTilt {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  font-size: 14px;
+  padding: 8px 4px;
+  background: #ffd13c;
+  color: #142e35;
+  touch-action: manipulation
+}
+
+.tilt-track {
+  width: 108px;
+  height: 8px;
+  border-radius: 8px;
+  background: #849ba755;
+  position: relative
+}
+
+.tilt-track:before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  height: 16px;
+  border-left: 1px solid #fff
+}
+
+.tilt-track i {
+  position: absolute;
+  left: calc(50% - 6px);
+  top: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffd13c
+}
+
+#steeringMode {
+  max-width: 65%
+}
+
+@media(max-width: 360px) {
+  .touch-controls .tilt-controls {
+      width:128px
+  }
+
+  .touch-controls .arrow-controls {
+      gap: 6px
+  }
+
+  .touch-controls .arrow-controls button {
+      width: 58px
+  }
+}
+
+@media(orientation: landscape) and (max-height:600px) {
+  .touch-controls .tilt-controls {
+      width:130px;
+      min-height: 118px;
+      gap: 6px
+  }
+
+  .touch-controls .arrow-controls {
+      gap: 6px
+  }
+
+  .touch-controls .arrow-controls button {
+      width: 56px;
+      height: 60px
+  }
+}
+
+/* Tilt mode shows the steering wheel itself, with calibration kept below. */
+.touch-controls .tilt-controls {
+  position: relative;
+  width: 148px;
+  min-height: 0;
+  height: 190px;
+  padding: 0;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  justify-content: flex-end
+}
+
+#tiltWheelGraphic {
+  display: block;
+  width: 140px;
+  height: 140px;
+  flex-shrink: 0;
+  transform-origin: 50% 50%;
+  transition: transform 80ms linear;
+  filter: drop-shadow(0 5px 7px #0008);
+  pointer-events: none
+}
+
+.tilt-controls .tilt-track {
+  display: none
+}
+
+.tilt-controls #tiltStatus {
+  position: absolute;
+  top: 28px;
+  left: 3px;
+  right: 3px;
+  padding: 6px;
+  background: #10252ef0;
+  border-radius: 8px;
+  z-index: 1;
+  pointer-events: none
+}
+
+.tilt-controls #tiltStatus:empty {
+  display: none
+}
+
+.touch-controls #calibrateTilt {
+  flex-shrink: 0;
+  min-height: 42px;
+  font-size: 14px
+}
+
+@media(max-width: 360px) {
+  .touch-controls .tilt-controls {
+      width:128px
+  }
+
+  #tiltWheelGraphic {
+      width: 128px;
+      height: 128px
+  }
+}
+
+@media(orientation: landscape) and (max-height:600px) {
+  .touch-controls .tilt-controls {
+      width:130px;
+      height: 150px;
+      min-height: 0;
+      gap: 0
+  }
+
+  #tiltWheelGraphic {
+      width: 108px;
+      height: 108px
+  }
+
+  .tilt-controls #tiltStatus {
+      top: 12px
+  }
+}

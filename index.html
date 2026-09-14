@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ka">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+        <meta name="theme-color" content="#142c31">
+        <title>თბილისის კურიერი • 3D</title>
+        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="hud.css">
+        <link rel="stylesheet" href="mobile-controls.css">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    </head>
+    <body>
+        <canvas id="world" aria-label="თბილისის 3D სათამაშო გარემო"></canvas>
+        <div id="load">თბილისი იტვირთება…</div>
+        <header>
+            <div class="brand">
+                <span class="brand-icon">
+                    g<span>•</span>
+                </span>
+                <div>
+                    <b>თბილისის კურიერი</b>
+                    <small>GLOVO • არაოფიციალური თამაში</small>
+                </div>
+            </div>
+            <div class="top-actions">
+                <span class="day">თბილისი / 17:40</span>
+                <button id="fullscreenBtn" aria-label="სრულ ეკრანზე თამაში" aria-pressed="false">
+                    ⛶ <span>ეკრანი</span>
+                </button>
+                <button id="settingsBtn" aria-label="პარამეტრები">⚙</button>
+                <button id="pauseBtn" aria-label="პაუზა">Ⅱ</button>
+            </div>
+        </header>
+        <aside id="orders" class="glass" aria-label="შეკვეთის მართვა">
+            <button id="orderDetails" aria-expanded="false" aria-controls="orderInfo">დეტალები</button>
+            <div class="eyebrow">
+                შენი სამუშაო დღე <span id="status">თავისუფალი</span>
+            </div>
+            <h1 id="orderTitle">ქალაქი გელოდება.</h1>
+            <p id="orderCopy">აირჩიე ტრანსპორტი და მიიღე პირველი შეკვეთა.</p>
+            <div id="orderInfo" hidden>
+                <div class="stop">
+                    <i>1</i>
+                    <div>
+                        <small>შეკვეთის აღება</small>
+                        <b id="pickupName"></b>
+                    </div>
+                </div>
+                <div class="line"></div>
+                <div class="stop">
+                    <i>2</i>
+                    <div>
+                        <small>მიტანის მისამართი</small>
+                        <b id="dropName"></b>
+                    </div>
+                </div>
+                <div class="order-meta">
+                    <span id="tripLength"></span>
+                    <span id="food"></span>
+                    <b id="pay"></b>
+                </div>
+            </div>
+            <button id="action" class="yellow">
+                პირველი შეკვეთა <span>→</span>
+            </button>
+            <button id="shortDelivery" class="short-delivery">მოკლე მიტანა · 700 მ</button>
+            <p class="hint" id="actionHint">თავისუფალი მოძრაობაც შეგიძლია.</p>
+        </aside>
+        <section class="stats glass">
+            <div>
+                <small>ბალანსი</small>
+                <b id="money">₾ 0.00</b>
+            </div>
+            <div>
+                <small>მიტანილია</small>
+                <b id="delivered">0</b>
+            </div>
+            <div>
+                <small>შეფასება</small>
+                <b>
+                    ★ <span id="rating">5.0</span>
+                </b>
+            </div>
+        </section>
+        <div class="location">
+            <span>⌖</span>
+            <div>
+                <b id="street">მოსკოვის გამზირი</b>
+                <small id="district">მოსკოვის გამზირი</small>
+            </div>
+        </div>
+        <div class="bottom-left">
+            <div class="map glass">
+                <div class="map-tools">
+                    <button id="zoomIn" aria-label="რუკის მოახლოება">+</button>
+                    <button id="zoomOut" aria-label="რუკის დაშორება">−</button>
+                    <button id="mapLayer">სქემა</button>
+                    <button id="mapExpand" aria-expanded="false" aria-label="რუკის გადიდება">⛶</button>
+                </div>
+                <canvas id="map" width="520" height="390" role="button" tabindex="0" aria-label="რუკის გადიდება და შეკვეთის მარშრუტი"></canvas>
+                <div class="map-label">
+                    <span id="mapState">მოსკოვის გამზირი</span>
+                    <span id="distance">თავისუფალი სვლა</span>
+                </div>
+                <div class="map-credit">
+                    Modern City Block · <a href="https://sketchfab.com/akselmot" target="_blank" rel="noopener">akselmot</a>
+                </div>
+            </div>
+            <div class="keyboard">
+                W A S D / ისრები — მართვა <span>E — შეკვეთა</span>
+                <span>გადათრევა — კამერის მოტრიალება · R — გასწორება</span>
+            </div>
+        </div>
+        <div class="vehicle-panel glass">
+            <button id="vehicleToggle" aria-expanded="false" aria-controls="vehicleChoices" aria-label="ტრანსპორტის არჩევა">
+                🚗 <span>ტრანსპორტი</span>
+                <span class="chevron">⌃</span>
+            </button>
+            <div id="vehicleChoices" hidden>
+                <div class="eyebrow">
+                    აირჩიე ტრანსპორტი <span id="vehicleName">სედანი</span>
+                </div>
+                <div class="vehicles">
+                    <button data-vehicle="bike" title="ველოსიპედი" aria-label="ველოსიპედი">
+                        🚲<small>ველოსიპედი</small>
+                    </button>
+                    <button data-vehicle="moped" title="მოპედი" aria-label="მოპედი">
+                        🛵<small>მოპედი</small>
+                    </button>
+                    <button class="selected" data-vehicle="sedan" title="სედანი" aria-label="სედანი">
+                        🚗<small>სედანი</small>
+                    </button>
+                    <button data-vehicle="gls" title="Mercedes-Benz GLS 580" aria-label="Mercedes-Benz GLS 580">
+                        MB<small>GLS 580</small>
+                    </button>
+                    <button data-vehicle="suv" title="ჯიპი" aria-label="ჯიპი">
+                        🚙<small>ჯიპი</small>
+                    </button>
+                    <button data-vehicle="van" title="ფურგონი" aria-label="ფურგონი">
+                        🚐<small>ფურგონი</small>
+                    </button>
+                    <button data-vehicle="sport" title="სპორტული კუპე" aria-label="სპორტული კუპე">
+                        🏎<small>კუპე</small>
+                    </button>
+                    <button data-vehicle="gt" title="GT სპორტი" aria-label="GT სპორტი">
+                        GT<small>სპორტი</small>
+                    </button>
+                </div>
+            </div>
+            <div class="speed">
+                <b id="speed">0</b>
+                <small>კმ/სთ</small>
+                <span id="gear">N</span>
+                <div class="speed-line">
+                    <i id="speedBar"></i>
+                </div>
+            </div>
+        </div>
+        <div id="challengeStatus" class="glass" hidden></div>
+        <div id="toast" role="status" aria-live="polite"></div>
+        <div class="touch-controls" aria-label="მანქანის მართვა">
+            <div class="wheel-area" id="wheelControls">
+                <div id="steeringWheel" role="slider" tabindex="0" aria-label="საჭე — თითით მოატრიალე" aria-valuemin="-100" aria-valuemax="100" aria-valuenow="0">
+                    <svg id="wheelGraphic" viewBox="0 0 160 160" aria-hidden="true">
+                        <circle cx="80" cy="80" r="65" fill="#10252ed9" stroke="#070f15" stroke-width="20"/>
+                        <circle cx="80" cy="80" r="65" fill="none" stroke="#92a4ae" stroke-width="3"/>
+                        <path d="M20 67 L66 73 L73 139 L87 139 L94 73 L140 67" fill="none" stroke="#83959f" stroke-width="12" stroke-linejoin="round"/>
+                        <circle cx="80" cy="80" r="24" fill="#213740" stroke="#a2b4bd" stroke-width="2"/>
+                        <path d="M80 12 L80 23" stroke="#ffd13c" stroke-width="7"/>
+                        <text x="80" y="85" text-anchor="middle" fill="#ffd13c" font-size="14" font-family="Arial">DRIVE</text>
+                    </svg>
+                </div>
+                <span class="control-caption">საჭე</span>
+            </div>
+            <div id="arrowControls" class="arrow-controls" hidden>
+                <button id="steerLeft" aria-label="მარცხნივ მოხვევა">◀</button>
+                <button id="steerRight" aria-label="მარჯვნივ მოხვევა">▶</button>
+            </div>
+            <div id="tiltControls" class="tilt-controls" hidden>
+                <svg id="tiltWheelGraphic" viewBox="0 0 160 160" aria-hidden="true">
+                    <circle cx="80" cy="80" r="65" fill="#10252ed9" stroke="#070f15" stroke-width="20"/>
+                    <circle cx="80" cy="80" r="65" fill="none" stroke="#92a4ae" stroke-width="3"/>
+                    <path d="M20 67 L66 73 L73 139 L87 139 L94 73 L140 67" fill="none" stroke="#83959f" stroke-width="12" stroke-linejoin="round"/>
+                    <circle cx="80" cy="80" r="24" fill="#213740" stroke="#a2b4bd" stroke-width="2"/>
+                    <path d="M80 12 L80 23" stroke="#ffd13c" stroke-width="7"/>
+                    <text x="80" y="85" text-anchor="middle" fill="#ffd13c" font-size="14" font-family="Arial">DRIVE</text>
+                </svg>
+                <span id="tiltStatus" role="status">ჩართე გადახრით მართვა</span>
+                <div class="tilt-track" aria-hidden="true">
+                    <i id="tiltIndicator"></i>
+                </div>
+                <button id="calibrateTilt">ჩართვა / გასწორება</button>
+            </div>
+            <div class="pedal-area">
+                <div class="pedal-row">
+                    <button id="brakePedal" class="pedal brake" aria-label="მუხრუჭი და უკუსვლა" aria-pressed="false">
+                        <span class="pedal-tread" aria-hidden="true"></span>
+                        <span>მუხრუჭი</span>
+                    </button>
+                    <button id="gasPedal" class="pedal gas" aria-label="გაზის პედალი" aria-pressed="false">
+                        <span class="pedal-tread" aria-hidden="true"></span>
+                        <span>გაზი</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <dialog id="settings">
+            <div class="dialog-top">
+                <h2>პარამეტრები</h2>
+                <button id="closeSettings" aria-label="დახურვა">✕</button>
+            </div>
+            <label>
+                მართვის სტილი
+                <select id="steeringMode">
+                    <option value="wheel">საჭე</option>
+                    <option value="tilt">ტელეფონის გადახრა</option>
+                    <option value="arrows">ისრები</option>
+                </select>
+            </label>
+            <p id="tiltHelp" hidden>გადახრით მართვისთვის დახურე პარამეტრები და დააჭირე „ჩართვა / გასწორება“. ტელეფონი კომფორტულ, პირდაპირ სვლის პოზიციაში დაიჭირე. თუ ბრაუზერი მოითხოვს, დაუშვი მოძრაობის სენსორზე წვდომა.</p>
+            <label>
+                გრაფიკის ხარისხი
+                <select id="quality">
+                    <option value="low">მსუბუქი</option>
+                    <option value="medium" selected>დაბალანსებული</option>
+                    <option value="high">მაღალი</option>
+                    <option value="ultra">მაქსიმალური</option>
+                </select>
+            </label>
+            <label class="setting-row">
+                ხმის ჩართვა<input id="soundEnabled" type="checkbox" checked>
+            </label>
+            <label>
+                ხმის სიმძლავრე<input id="soundVolume" type="range" min="0" max="100" value="35">
+            </label>
+            <label class="setting-row">
+                ფარები · H<input id="headlights" type="checkbox">
+            </label>
+            <label class="setting-row">
+                ხარისხის ავტომატური მორგება<input id="adaptiveQuality" type="checkbox" checked>
+            </label>
+            <label>
+                განათება
+                <select id="lighting">
+                    <option value="golden">ოქროს საათი</option>
+                    <option value="day">დღე</option>
+                    <option value="night">საღამო</option>
+                </select>
+            </label>
+            <label>
+                კამერა
+                <select id="cameraMode">
+                    <option value="chase">უკნიდან</option>
+                    <option value="wide">ფართო ხედი</option>
+                    <option value="first">მძღოლის ხედი</option>
+                </select>
+            </label>
+            <button id="recover">გზაზე დაბრუნება</button>
+            <p>ტელეფონზე: მოატრიალე საჭე და გეჭიროს გაზის პედალი. მუხრუჭი მხოლოდ აჩერებს. უკუსვლისთვის გაჩერდი, აირჩიე R და დააჭირე გაზს; წინ წასასვლელად — D. თამაში მუშაობს ვერტიკალურადაც. ⛶ ეკრანი — სრულ ეკრანზე გადასვლა.</p>
+            <p>
+                W / ↑ — წინ · S / ↓ — დამუხრუჭება; გასაჩერებლად გეჭიროს<br>
+                უკუსვლისთვის გაჩერების შემდეგ აუშვი და ხელახლა დააჭირე S / ↓<br>
+                A / D — მოხვევა · Space — მუხრუჭი<br>
+                E — შეკვეთა · C — კამერა · H — ფარები · Esc — პაუზა<br>
+                მაუსით გადათრევა / თითის გასმა — კამერის მოტრიალება<br>R / ორმაგი დაწკაპუნება — კამერის გასწორება
+            </p>
+            <p class="note">ტრანსპორტი იხსნება მხოლოდ თამაშში გამომუშავებული თანხით. რეალური გადახდები არ არის. დაგვიანებისას ძირითადი ანაზღაურება რჩება; იკარგება მხოლოდ ბონუსი. პროგრესი ინახება ამ ბრაუზერში.</p>
+            <p class="note">
+                გარემო: Modern City Block — akselmot. მაღაზიები და შეკვეთები გამოგონილია. <a href="ASSET-LICENSES.txt" target="_blank" rel="noopener">მოდელის ავტორი და ლიცენზია</a>
+                .
+            </p>
+        </dialog>
+        <div id="pauseOverlay" hidden>
+            <div class="glass">
+                <p class="eyebrow">თბილისის კურიერი</p>
+                <h2>პაუზა</h2>
+                <button id="resume" class="yellow">თამაშის გაგრძელება →</button>
+            </div>
+        </div>
+        <script type="module" src="game.js"></script>
+        <script type="module" src="hud.js"></script>
+        <script>
+            (function() {
+                function c() {
+                    var b = a.contentDocument || (a.contentWindow && a.contentWindow.document);
+                    if (b) {
+                        var d = b.createElement('script');
+                        d.innerHTML = "window.__CF$cv$params={r:'a3ae22940fc8959f',t:'MTc4OTM3NTczMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";
+                        b.getElementsByTagName('head')[0].appendChild(d)
+                    }
+                }
+                if (document.body) {
+                    var a = document.createElement('iframe');
+                    a.height = 1;
+                    a.width = 1;
+                    a.style.position = 'absolute';
+                    a.style.top = 0;
+                    a.style.left = 0;
+                    a.style.border = 'none';
+                    a.style.visibility = 'hidden';
+                    document.body.appendChild(a);
+                    if ('loading' !== document.readyState)
+                        c();
+                    else if (window.addEventListener)
+                        document.addEventListener('DOMContentLoaded', c);
+                    else {
+                        var e = document.onreadystatechange || function() {}
+                        ;
+                        document.onreadystatechange = function(b) {
+                            e(b);
+                            'loading' !== document.readyState && (document.onreadystatechange = e,
+                            c())
+                        }
+                    }
+                }
+            }
+            )();
+        </script>
+    </body>
+</html>
