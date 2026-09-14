@@ -1,15 +1,18 @@
 {
-  "file": "Anna Ipati.fbx.gz",
+  "format": "glb-base64-chunks",
   "parts": [
-    {"name": "anna-ipati.fbx.gz.part00", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part01", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part02", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part03", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part04", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part05", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part06", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part07", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part08", "size": 12582912},
-    {"name": "anna-ipati.fbx.gz.part09", "size": 2412510}
-  ]
+    "part00.b64",
+    "part01.b64",
+    "part02.b64",
+    "part03.b64",
+    "part04.b64",
+    "part05.b64",
+    "part06.b64",
+    "part07.b64",
+    "part08.b64",
+    "part09.b64",
+    "part10.b64"
+  ],
+  "decoded_bytes": 23004,
+  "purpose": "game-ready pedestrian model"
 }
