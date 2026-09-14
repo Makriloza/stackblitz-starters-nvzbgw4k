@@ -7,6 +7,9 @@
     "start": "vite --host 0.0.0.0",
     "build": "vite build"
   },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
   "devDependencies": {
     "vite": "^7.1.5"
   }
