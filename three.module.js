@@ -1,3 +1,2 @@
-// Three.js compatibility wrapper. The original bundled core file in this repository was corrupted.
-// Vite resolves the package import below from package.json.
-export * from 'three';
+// Stable Three.js compatibility wrapper for browser, StackBlitz and static hosting.
+export * from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
