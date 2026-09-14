@@ -1,7 +1,7 @@
 import * as T from './three.module.js';
 import {createPerson} from './people.js';
-import {FBXLoader} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/loaders/FBXLoader.js';
-import {clone as cloneSkeleton} from 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/utils/SkeletonUtils.js';
+import {FBXLoader} from 'https://esm.sh/three@0.180.0/examples/jsm/loaders/FBXLoader.js?bundle';
+import {clone as cloneSkeleton} from 'https://esm.sh/three@0.180.0/examples/jsm/utils/SkeletonUtils.js?bundle';
 
 const MODEL_URL='./assets/anna-ipati/Anna Ipati.fbx';
 let sourcePromise;
