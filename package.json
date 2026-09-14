@@ -1,0 +1,13 @@
+{
+  "name": "tbilisi-courier-3d",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "start": "vite --host 0.0.0.0",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5"
+  }
+}
