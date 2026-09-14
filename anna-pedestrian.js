@@ -1,49 +1,9 @@
 import * as T from './three.module.js';
-import {FBXLoader} from 'https://esm.sh/three@0.180.0/examples/jsm/loaders/FBXLoader.js?bundle';
-import {clone as cloneSkeleton} from 'https://esm.sh/three@0.180.0/examples/jsm/utils/SkeletonUtils.js?bundle';
-import JSZip from 'https://esm.sh/jszip@3.10.1';
 
-const DB_NAME = 'tbilisi-drive-assets';
-const STORE_NAME = 'files';
-const CACHE_KEY = 'anna-ipati-animated-zip';
+const MANIFEST_URL = './assets/anna-ipati/manifest.json';
+const MODEL_BASE_URL = './assets/anna-ipati/model/';
 const liveRoots = new Set();
 let sourcePromise = null;
-let pickerReady = false;
-
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function cacheZip(arrayBuffer) {
-  const db = await openDb();
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(arrayBuffer, CACHE_KEY);
-    tx.oncomplete = resolve;
-    tx.onerror = () => reject(tx.error);
-  });
-  db.close();
-}
-
-async function readCachedZip() {
-  const db = await openDb();
-  const result = await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const req = tx.objectStore(STORE_NAME).get(CACHE_KEY);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-  db.close();
-  return result;
-}
 
 function makePlaceholder(index = 0) {
   const root = new T.Group();
@@ -60,193 +20,256 @@ function makePlaceholder(index = 0) {
   const limb = (x, y, mat, arm = false) => {
     const pivot = new T.Group();
     pivot.position.set(x, y, 0);
-    const m = new T.Mesh(new T.CapsuleGeometry(arm ? .045 : .06, arm ? .34 : .48, 3, 7), mat);
-    m.position.y = arm ? -.2 : -.28;
-    pivot.add(m);
+    const mesh = new T.Mesh(new T.CapsuleGeometry(arm ? .045 : .06, arm ? .34 : .48, 3, 7), mat);
+    mesh.position.y = arm ? -.2 : -.28;
+    pivot.add(mesh);
     root.add(pivot);
     return pivot;
   };
+
   const legL = limb(-.1, .76, pants), legR = limb(.1, .76, pants);
   const armL = limb(-.25, 1.35, cloth, true), armR = limb(.25, 1.35, cloth, true);
   root.userData.pose = (time, walk = 0) => {
-    const a = Math.max(0, Math.min(1, walk));
-    const s = Math.sin(time * 7 + index * .71) * .55 * a;
-    legL.rotation.x = s; legR.rotation.x = -s;
-    armL.rotation.x = -s * .7; armR.rotation.x = s * .7;
+    const amount = Math.max(0, Math.min(1, walk));
+    const swing = Math.sin(time * 7 + index * .71) * .55 * amount;
+    legL.rotation.x = swing;
+    legR.rotation.x = -swing;
+    armL.rotation.x = -swing * .7;
+    armR.rotation.x = swing * .7;
   };
   return root;
 }
 
-async function buildSourceFromZip(arrayBuffer) {
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const entries = Object.values(zip.files);
-  const fbxEntry = entries.find(e => !e.dir && /\.fbx$/i.test(e.name));
-  if (!fbxEntry) throw new Error('FBX file was not found inside the selected ZIP.');
+function decodeBase64(base64) {
+  const clean = base64.replace(/\s+/g, '');
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
 
-  const textureEntries = entries.filter(e => !e.dir && /\.(png|jpe?g|webp)$/i.test(e.name));
-  const objectUrls = new Map();
-  for (const entry of textureEntries) {
-    const blob = await entry.async('blob');
-    const url = URL.createObjectURL(blob);
-    const name = entry.name.split('/').pop().toLowerCase();
-    objectUrls.set(name, url);
+function componentInfo(componentType) {
+  switch (componentType) {
+    case 5120: return {ArrayType: Int8Array, bytes: 1};
+    case 5121: return {ArrayType: Uint8Array, bytes: 1};
+    case 5122: return {ArrayType: Int16Array, bytes: 2};
+    case 5123: return {ArrayType: Uint16Array, bytes: 2};
+    case 5125: return {ArrayType: Uint32Array, bytes: 4};
+    case 5126: return {ArrayType: Float32Array, bytes: 4};
+    default: throw new Error('Unsupported glTF component type: ' + componentType);
+  }
+}
+
+function itemSize(type) {
+  return ({SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16})[type] || 1;
+}
+
+function readAccessor(gltf, bin, index) {
+  const accessor = gltf.accessors[index];
+  if (!accessor || accessor.bufferView == null) throw new Error('Unsupported sparse/empty accessor');
+  const view = gltf.bufferViews[accessor.bufferView];
+  const {ArrayType, bytes} = componentInfo(accessor.componentType);
+  const size = itemSize(accessor.type);
+  const count = accessor.count;
+  const baseOffset = (view.byteOffset || 0) + (accessor.byteOffset || 0);
+  const stride = view.byteStride || size * bytes;
+
+  let array;
+  if (stride === size * bytes && baseOffset % bytes === 0) {
+    array = new ArrayType(bin.buffer, bin.byteOffset + baseOffset, count * size);
+  } else {
+    array = new ArrayType(count * size);
+    const data = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+    const little = true;
+    const getter = ({
+      5120: 'getInt8', 5121: 'getUint8', 5122: 'getInt16', 5123: 'getUint16',
+      5125: 'getUint32', 5126: 'getFloat32'
+    })[accessor.componentType];
+    for (let i = 0; i < count; i++) {
+      for (let c = 0; c < size; c++) {
+        array[i * size + c] = data[getter](baseOffset + i * stride + c * bytes, little);
+      }
+    }
   }
 
-  const manager = new T.LoadingManager();
-  manager.setURLModifier(url => {
-    const clean = decodeURIComponent(url.split('?')[0]).replace(/\\/g, '/');
-    const name = clean.split('/').pop().toLowerCase();
-    return objectUrls.get(name) || url;
-  });
+  return {array, itemSize: size, normalized: !!accessor.normalized, componentType: accessor.componentType};
+}
 
-  const loader = new FBXLoader(manager);
-  const fbxBuffer = await fbxEntry.async('arraybuffer');
-  const fbx = loader.parse(fbxBuffer, '');
-  fbx.traverse(o => {
-    if (!o.isMesh) return;
-    o.castShadow = true;
-    o.receiveShadow = true;
-    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-    for (const m of mats) {
-      if (m.map) m.map.colorSpace = T.SRGBColorSpace;
-      m.needsUpdate = true;
+function makeMaterial(gltf, materialIndex, hasVertexColor) {
+  const src = gltf.materials?.[materialIndex] || {};
+  const pbr = src.pbrMetallicRoughness || {};
+  const factor = pbr.baseColorFactor || [1, 1, 1, 1];
+  const material = new T.MeshStandardMaterial({
+    color: new T.Color(factor[0], factor[1], factor[2]),
+    opacity: factor[3] ?? 1,
+    transparent: (factor[3] ?? 1) < .999 || src.alphaMode === 'BLEND',
+    alphaTest: src.alphaMode === 'MASK' ? (src.alphaCutoff ?? .5) : 0,
+    metalness: pbr.metallicFactor ?? 0,
+    roughness: pbr.roughnessFactor ?? .8,
+    side: src.doubleSided ? T.DoubleSide : T.FrontSide,
+    vertexColors: !!hasVertexColor
+  });
+  material.name = src.name || 'AnnaMaterial';
+  return material;
+}
+
+function primitiveToMesh(gltf, bin, primitive) {
+  const geometry = new T.BufferGeometry();
+  const attrs = primitive.attributes || {};
+  const semanticMap = {POSITION: 'position', NORMAL: 'normal', TEXCOORD_0: 'uv', COLOR_0: 'color'};
+
+  for (const [semantic, target] of Object.entries(semanticMap)) {
+    if (attrs[semantic] == null) continue;
+    const data = readAccessor(gltf, bin, attrs[semantic]);
+    geometry.setAttribute(target, new T.BufferAttribute(data.array, data.itemSize, data.normalized));
+  }
+
+  if (primitive.indices != null) {
+    const data = readAccessor(gltf, bin, primitive.indices);
+    geometry.setIndex(new T.BufferAttribute(data.array, 1, false));
+  }
+  if (!geometry.getAttribute('normal') && geometry.getAttribute('position')) geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+
+  const material = makeMaterial(gltf, primitive.material, attrs.COLOR_0 != null);
+  const mesh = new T.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function parseGlb(arrayBuffer) {
+  const dv = new DataView(arrayBuffer);
+  if (dv.getUint32(0, true) !== 0x46546c67) throw new Error('Anna GLB has invalid header');
+  if (dv.getUint32(4, true) !== 2) throw new Error('Anna GLB must be glTF 2.0');
+
+  let offset = 12;
+  let gltf = null;
+  let bin = null;
+  const decoder = new TextDecoder();
+  while (offset + 8 <= arrayBuffer.byteLength) {
+    const length = dv.getUint32(offset, true);
+    const type = dv.getUint32(offset + 4, true);
+    const start = offset + 8;
+    const end = start + length;
+    if (type === 0x4e4f534a) {
+      gltf = JSON.parse(decoder.decode(new Uint8Array(arrayBuffer, start, length)).replace(/\u0000+$/g, '').trim());
+    } else if (type === 0x004e4942) {
+      bin = new Uint8Array(arrayBuffer, start, length);
     }
+    offset = end;
+  }
+  if (!gltf || !bin) throw new Error('Anna GLB is missing JSON or BIN data');
+
+  const meshCache = new Map();
+  const makeMeshGroup = meshIndex => {
+    if (meshCache.has(meshIndex)) return meshCache.get(meshIndex).clone(true);
+    const def = gltf.meshes[meshIndex];
+    const group = new T.Group();
+    group.name = def?.name || `AnnaMesh${meshIndex}`;
+    for (const primitive of def?.primitives || []) group.add(primitiveToMesh(gltf, bin, primitive));
+    meshCache.set(meshIndex, group);
+    return group.clone(true);
+  };
+
+  const nodes = (gltf.nodes || []).map((def, i) => {
+    const obj = def.mesh != null ? makeMeshGroup(def.mesh) : new T.Group();
+    obj.name = def.name || obj.name || `AnnaNode${i}`;
+    if (def.matrix) obj.matrix.fromArray(def.matrix).decompose(obj.position, obj.quaternion, obj.scale);
+    else {
+      if (def.translation) obj.position.fromArray(def.translation);
+      if (def.rotation) obj.quaternion.fromArray(def.rotation);
+      if (def.scale) obj.scale.fromArray(def.scale);
+    }
+    return obj;
   });
 
-  fbx.updateMatrixWorld(true);
-  const box = new T.Box3().setFromObject(fbx);
+  (gltf.nodes || []).forEach((def, i) => {
+    for (const child of def.children || []) nodes[i].add(nodes[child]);
+  });
+
+  const sceneDef = gltf.scenes?.[gltf.scene || 0] || {nodes: nodes.map((_, i) => i)};
+  const root = new T.Group();
+  root.name = 'Anna Ipati bundled pedestrian';
+  for (const nodeIndex of sceneDef.nodes || []) root.add(nodes[nodeIndex]);
+  return root;
+}
+
+async function loadBundledSource() {
+  const manifestResponse = await fetch(MANIFEST_URL, {cache: 'force-cache'});
+  if (!manifestResponse.ok) throw new Error(`Anna manifest HTTP ${manifestResponse.status}`);
+  const manifest = await manifestResponse.json();
+  if (manifest.format !== 'glb-base64-chunks' || !Array.isArray(manifest.parts)) {
+    throw new Error('Anna manifest format is not supported');
+  }
+
+  const parts = await Promise.all(manifest.parts.map(async name => {
+    const response = await fetch(MODEL_BASE_URL + name, {cache: 'force-cache'});
+    if (!response.ok) throw new Error(`Anna model chunk ${name} HTTP ${response.status}`);
+    return response.text();
+  }));
+
+  const source = parseGlb(decodeBase64(parts.join('')));
+  source.traverse(obj => {
+    if (!obj.isMesh) return;
+    obj.castShadow = true;
+    obj.receiveShadow = true;
+  });
+
+  source.updateMatrixWorld(true);
+  const box = new T.Box3().setFromObject(source);
   const size = new T.Vector3();
   box.getSize(size);
   const scale = size.y > 0 ? 1.72 / size.y : 1;
-  fbx.scale.setScalar(scale);
-  fbx.updateMatrixWorld(true);
-  const fitted = new T.Box3().setFromObject(fbx);
-  fbx.position.y -= fitted.min.y;
-  fbx.userData._annaObjectUrls = objectUrls;
-  return fbx;
+  source.scale.setScalar(scale);
+  source.updateMatrixWorld(true);
+  const fitted = new T.Box3().setFromObject(source);
+  source.position.y -= fitted.min.y;
+  source.userData.asset = 'anna-ipati-bundled';
+  return source;
 }
 
-async function loadSource() {
-  if (!sourcePromise) {
-    sourcePromise = (async () => {
-      const cached = await readCachedZip();
-      if (!cached) throw new Error('Anna ZIP is not cached yet.');
-      return await buildSourceFromZip(cached);
-    })();
-  }
+function loadSource() {
+  if (!sourcePromise) sourcePromise = loadBundledSource();
   return sourcePromise;
 }
 
-function installSourceInto(root, source) {
-  const old = root.userData.model;
-  if (old) root.remove(old);
+function installSourceInto(root, source, index = 0) {
   for (const child of [...root.children]) root.remove(child);
-
-  const model = cloneSkeleton(source);
+  const model = source.clone(true);
   model.rotation.y = Math.PI;
   root.add(model);
   root.userData.model = model;
   root.userData.ready = true;
   root.userData.isOriginalAnna = true;
 
-  const animations = source.animations || [];
-  if (animations.length) {
-    const mixer = new T.AnimationMixer(model);
-    const clip = animations.find(c => /walk|walking|locomotion/i.test(c.name)) || animations[0];
-    mixer.clipAction(clip).play();
-    let lastTime = null;
-    root.userData.pose = (time, walk = 0) => {
-      const dt = lastTime == null ? 0 : Math.max(0, Math.min(.1, time - lastTime));
-      lastTime = time;
-      mixer.timeScale = Math.max(.05, walk * 1.5);
-      mixer.update(dt);
-    };
-  } else {
-    root.userData.pose = () => {};
-  }
-}
-
-async function refreshAllRoots() {
-  const source = await loadSource();
-  for (const root of liveRoots) installSourceInto(root, source);
-}
-
-function showStatus(text, ok = false) {
-  let el = document.getElementById('anna-asset-status');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'anna-asset-status';
-    Object.assign(el.style, {
-      position: 'fixed', left: '50%', top: '18px', transform: 'translateX(-50%)', zIndex: 10020,
-      padding: '10px 14px', borderRadius: '10px', font: '600 13px system-ui',
-      background: 'rgba(10,14,20,.92)', color: '#fff', boxShadow: '0 8px 30px rgba(0,0,0,.35)'
-    });
-    document.body.appendChild(el);
-  }
-  el.textContent = text;
-  if (ok) setTimeout(() => el.remove(), 3200);
-}
-
-function ensurePicker() {
-  if (pickerReady || typeof document === 'undefined') return;
-  pickerReady = true;
-  const run = async () => {
-    const cached = await readCachedZip().catch(() => null);
-    if (cached) {
-      loadSource().then(refreshAllRoots).catch(console.warn);
-      return;
-    }
-
-    const wrap = document.createElement('div');
-    wrap.id = 'anna-zip-picker';
-    Object.assign(wrap.style, {
-      position: 'fixed', right: '14px', top: '14px', zIndex: 10010,
-      background: 'rgba(12,18,26,.94)', color: '#fff', padding: '10px 12px', borderRadius: '12px',
-      font: '600 12px system-ui', boxShadow: '0 8px 28px rgba(0,0,0,.35)'
-    });
-    const button = document.createElement('button');
-    button.textContent = 'Anna 3D მოდელის ჩატვირთვა';
-    Object.assign(button.style, {border: 0, borderRadius: '9px', padding: '10px 12px', fontWeight: '700', cursor: 'pointer'});
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.zip,application/zip'; input.style.display = 'none';
-    wrap.append(button, input);
-    document.body.appendChild(wrap);
-
-    button.onclick = () => input.click();
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      try {
-        button.disabled = true;
-        showStatus('Anna იტვირთება… ფაილი დიდია, არ დახურო თამაში.');
-        const buf = await file.arrayBuffer();
-        await cacheZip(buf);
-        sourcePromise = null;
-        await refreshAllRoots();
-        wrap.remove();
-        showStatus('Anna ჩაიტვირთა და დამახსოვრდა ✓', true);
-      } catch (err) {
-        console.error(err);
-        button.disabled = false;
-        showStatus('Anna ვერ ჩაიტვირთა: ' + (err?.message || err));
-      }
-    };
+  const baseY = model.position.y;
+  root.userData.pose = (time, walk = 0) => {
+    const amount = Math.max(0, Math.min(1, walk));
+    const step = Math.sin(time * 6.4 + index * .9);
+    model.position.y = baseY + Math.abs(step) * .018 * amount;
+    model.rotation.z = step * .012 * amount;
   };
-  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', run, {once:true}); else run();
 }
-
-ensurePicker();
 
 export function createAnnaPedestrian(index = 0) {
   const root = new T.Group();
   root.name = 'AnnaPedestrian';
   root.userData.ready = false;
   root.userData.isOriginalAnna = false;
+
   const fallback = makePlaceholder(index);
   root.add(fallback);
   root.userData.pose = (...args) => fallback.userData.pose?.(...args);
   liveRoots.add(root);
 
-  loadSource().then(source => installSourceInto(root, source)).catch(() => {});
+  loadSource()
+    .then(source => installSourceInto(root, source, index))
+    .catch(error => console.warn('Anna pedestrian asset failed to load; using fallback.', error));
+
   return root;
 }
+
+// Warm the small bundled model early so the first visible pedestrian swaps in immediately.
+if (typeof window !== 'undefined') loadSource().catch(() => {});
