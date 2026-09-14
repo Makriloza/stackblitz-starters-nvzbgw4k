@@ -1,118 +1,124 @@
-import {Group, LoadingManager, Raycaster, Vector3, Box3} from './three.module.js';
-import {addMoskovisAvenue} from './moskovis-avenue.js';
-import {GLTFLoader} from './vendor/GLTFLoader.js';
-export async function loadDistrict(scene, _surfaces, onProgress= () => {}
-) {
-    const manager = new LoadingManager();
-    manager.onProgress = (_url, n, total) => onProgress(n, total);
-    let failed = false;
-    manager.onError = () => {
-        failed = true;
+import {
+  Group,
+  Mesh,
+  PlaneGeometry,
+  BoxGeometry,
+  MeshStandardMaterial,
+  InstancedMesh,
+  Object3D,
+  Color
+} from './three.module.js';
+import layout from './modern-layout.js';
+
+function makeRoadList() {
+  const roads = layout.roads.map(([a, b, width, name, id]) => ({
+    a: layout.nodes[a],
+    b: layout.nodes[b],
+    width,
+    name,
+    id
+  }));
+  const avenue = [
+    [[202, -110], [202, -108]],
+    [[202, -108], [219, -108]],
+    [[219, -108], [222, -108]],
+    [[222, -108], [282, -108]],
+    [[282, -108], [342, -108]]
+  ];
+  avenue.forEach((p, i) => roads.push({ a: p[0], b: p[1], width: 9.4, name: 'მოსკოვის გამზირი', id: 2000 + i }));
+  return roads;
+}
+
+function pointSegmentDistance(x, z, a, b) {
+  const dx = b[0] - a[0], dz = b[1] - a[1];
+  const d2 = dx * dx + dz * dz || 1;
+  const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / d2));
+  return Math.hypot(x - (a[0] + dx * t), z - (a[1] + dz * t));
+}
+
+export async function loadDistrict(scene, _surfaces, onProgress = () => {}) {
+  onProgress(1, 3);
+  const root = new Group();
+  root.name = 'Procedural Tbilisi District';
+
+  const ground = new Mesh(
+    new PlaneGeometry(1200, 1200),
+    new MeshStandardMaterial({ color: '#6f7868', roughness: 1 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -0.08;
+  ground.receiveShadow = true;
+  root.add(ground);
+
+  const roads = makeRoadList();
+  const dummy = new Object3D();
+  const roadGeo = new BoxGeometry(1, 1, 1);
+  const roadMat = new MeshStandardMaterial({ color: '#4d5355', roughness: 0.96 });
+  const sidewalkMat = new MeshStandardMaterial({ color: '#a6aaa3', roughness: 1 });
+  const sidewalks = new InstancedMesh(roadGeo, sidewalkMat, roads.length);
+  const asphalt = new InstancedMesh(roadGeo, roadMat, roads.length);
+
+  roads.forEach((r, i) => {
+    const [ax, az] = r.a, [bx, bz] = r.b;
+    const dx = bx - ax, dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    const angle = -Math.atan2(dz, dx);
+    dummy.position.set((ax + bx) / 2, -0.015, (az + bz) / 2);
+    dummy.rotation.set(0, angle, 0);
+    dummy.scale.set(len, 0.05, r.width + 2.8);
+    dummy.updateMatrix();
+    sidewalks.setMatrixAt(i, dummy.matrix);
+
+    dummy.position.y = 0.025;
+    dummy.scale.set(len, 0.06, r.width);
+    dummy.updateMatrix();
+    asphalt.setMatrixAt(i, dummy.matrix);
+  });
+  sidewalks.receiveShadow = true;
+  asphalt.receiveShadow = true;
+  root.add(sidewalks, asphalt);
+  onProgress(2, 3);
+
+  const buildingGeo = new BoxGeometry(1, 1, 1);
+  const buildingMat = new MeshStandardMaterial({ color: '#c9c3b7', roughness: 0.88 });
+  const candidates = [];
+  for (let x = -185; x <= 330; x += 24) {
+    for (let z = -185; z <= 185; z += 24) {
+      let nearest = Infinity;
+      for (const r of roads) {
+        nearest = Math.min(nearest, pointSegmentDistance(x, z, r.a, r.b) - r.width / 2);
+        if (nearest < 8) break;
+      }
+      if (nearest < 8) continue;
+      const h = 8 + (Math.abs((x * 17 + z * 31) % 23));
+      const w = 10 + (Math.abs((x + z) % 7));
+      const d = 10 + (Math.abs((x - z) % 7));
+      candidates.push({ x, z, h, w, d });
     }
-    ;
-    const base = new URL('./assets/modern/',import.meta.url);
-    async function get(name) {
-        const r = await fetch(new URL(name,base));
-        if (!r.ok)
-            throw Error('District asset unavailable');
-        return r;
-    }
-    const [gltf,h] = await Promise.all([new GLTFLoader(manager).loadAsync(new URL('city.glb',base).href), get('height.bin').then(r => r.arrayBuffer())]);
-    if (failed)
-        throw Error('District textures failed');
-    const root = new Group();
-    root.name = 'Modern City Block';
-    root.scale.setScalar(.01);
-    root.position.set(100, 0, -160);
-    root.add(gltf.scene);
-    const remove = [];
-    root.traverse(o => {
-        if (!o.isMesh)
-            return;
-        if (o.name.startsWith('Plane061') || /^fences/i.test(o.name)) {
-            remove.push(o);
-            return;
-        }
-        o.castShadow = true;
-        o.receiveShadow = true;
-        for (const m of Array.isArray(o.material) ? o.material : [o.material])
-            for (const v of Object.values(m))
-                if (v?.isTexture)
-                    v.anisotropy = 8;
-    }
-    );
-    remove.forEach(o => o.removeFromParent());
-    scene.add(root);
-    const heights = new Float32Array(h)
-      , N = 861
-      , origin = -215
-      , step = .5;
-    const sample = (field, x, z) => {
-        const u = (x - origin) / step
-          , v = (z - origin) / step
-          , a = Math.floor(u)
-          , b = Math.floor(v);
-        if (a < 0 || b < 0 || a >= N - 1 || b >= N - 1)
-            return -999;
-        const dx = u - a
-          , dz = v - b
-          , i = b * N + a
-          , vs = [field[i], field[i + 1], field[i + N], field[i + N + 1]];
-        if (vs.some(v => v < -900))
-            return -999;
-        return vs[0] * (1 - dx) * (1 - dz) + vs[1] * dx * (1 - dz) + vs[2] * (1 - dx) * dz + vs[3] * dx * dz;
-    }
-    ;
-    const originalHeightAt = (x, z) => {
-        const y = sample(heights, x, z);
-        return y < -900 ? null : y;
-    }
-    ;
-    const lowestTerrain = heights.reduce( (min, y) => Number.isFinite(y) && y > -900 ? Math.min(min, y) : min, 0);
-    const addition = await addMoskovisAvenue(scene, manager, originalHeightAt, lowestTerrain - .5);
-    const heightAt = (x, z) => addition.heightAt(x, z) ?? originalHeightAt(x, z);
-    // Broad projected footprints included roofs and upper-floor overhangs. Test the
-    // visible wall triangles at vehicle-body height instead of treating their shadows as walls.
-    root.updateMatrixWorld(true);
-    const walls = [];
-    root.traverse(o => {
-        if (o.isMesh && /^(Plane|Cube|fences|pillars)/.test(o.name) && !o.name.startsWith('Plane061'))
-            walls.push({
-                mesh: o,
-                box: new Box3().setFromObject(o)
-            });
-    }
-    );
-    const ray = new Raycaster()
-      , origin3 = new Vector3()
-      , direction = new Vector3();
-    function blocked(x, z, r=.3) {
-        const ground = heightAt(x, z);
-        if (ground === null)
-            return false;
-        const nearby = walls.filter( ({box: b}) => x + r >= b.min.x && x - r <= b.max.x && z + r >= b.min.z && z - r <= b.max.z && b.min.y < ground + 1.45 && b.max.y > ground + .45);
-        if (!nearby.length)
-            return false;
-        ray.near = 0;
-        ray.far = r + .04;
-        for (const y of [.55, 1.25])
-            for (let i = 0; i < 12; i++) {
-                const angle = i * Math.PI / 6;
-                origin3.set(x, ground + y, z);
-                direction.set(Math.sin(angle), 0, Math.cos(angle));
-                ray.set(origin3, direction);
-                for (const {mesh} of nearby)
-                    if (ray.intersectObject(mesh, false).length)
-                        return true;
-            }
-        return false;
-    }
-    return {
-        root,
-        heightAt,
-        blocked,
-        groundHeight: addition.groundHeight,
-        avenue: addition.avenue,
-        update: addition.update
-    };
+  }
+  const buildings = new InstancedMesh(buildingGeo, buildingMat, candidates.length);
+  const palette = ['#c9c3b7', '#b8b0a3', '#d6d0c5', '#aeb7ba', '#c2b6aa'];
+  candidates.forEach((b, i) => {
+    dummy.position.set(b.x, b.h / 2, b.z);
+    dummy.rotation.set(0, ((b.x + b.z) % 5) * 0.08, 0);
+    dummy.scale.set(b.w, b.h, b.d);
+    dummy.updateMatrix();
+    buildings.setMatrixAt(i, dummy.matrix);
+    buildings.setColorAt(i, new Color(palette[Math.abs((b.x + b.z) | 0) % palette.length]));
+  });
+  buildings.castShadow = true;
+  buildings.receiveShadow = true;
+  root.add(buildings);
+
+  scene.add(root);
+  onProgress(3, 3);
+
+  return {
+    root,
+    heightAt: () => 0,
+    blocked: () => false,
+    groundHeight: 0,
+    avenue: root,
+    update: () => {}
+  };
 }
