@@ -10,9 +10,16 @@
     "part06.b64",
     "part07.b64",
     "part08.b64",
-    "part09.b64",
-    "part10.b64"
+    "part09a.b64",
+    "part09b.b64",
+    "part09c.b64",
+    "part09d.b64",
+    "part10a.b64",
+    "part10b.b64",
+    "part10c.b64",
+    "part10d.b64"
   ],
-  "decoded_bytes": 23004,
-  "purpose": "game-ready pedestrian model"
+  "decoded_bytes": 33988,
+  "sha256": "23dba17ac8201e708b5e1ce7ac72d820e2149016383b403151cd320c8f6ce5a1",
+  "purpose": "FBX-derived Anna Ipati pedestrian LOD"
 }
