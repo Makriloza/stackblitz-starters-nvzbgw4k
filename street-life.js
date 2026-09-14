@@ -1,4 +1,4 @@
-import {createPerson} from './people.js';
+import {createAnnaPedestrian} from './anna-pedestrian.js';
 import SIDEWALKS from './modern-walks.js';
 
 export function createPedestrianSystem(scene,district){
@@ -17,7 +17,7 @@ export function createPedestrianSystem(scene,district){
     return true;
   }),pool=[];
   let limit=16,lastRefresh=-Infinity;
-  function make(){const g=createPerson(pool.length);g.visible=false;scene.add(g);const i=pool.length;const p={g,lane:null,travel:0,direction:i%2?1:-1,speed:.85+(i%5)*.12,phase:i*.7,pause:0,walk:0};pool.push(p);return p;}
+  function make(){const g=createAnnaPedestrian(pool.length);g.visible=false;scene.add(g);const i=pool.length;const p={g,lane:null,travel:0,direction:i%2?1:-1,speed:.85+(i%5)*.12,phase:i*.7,pause:0,walk:0};pool.push(p);return p;}
   function place(p){const l=p.lane,u=p.travel/l.length;p.g.position.set(l.a.x+(l.b.x-l.a.x)*u,(district.heightAt(l.a.x+(l.b.x-l.a.x)*u,l.a.z+(l.b.z-l.a.z)*u)??0)+.04,l.a.z+(l.b.z-l.a.z)*u);}
   function refresh(position){
     const nearby=lanes.map(lane=>({lane,d:Math.hypot((lane.a.x+lane.b.x)/2-position.x,(lane.a.z+lane.b.z)/2-position.z)})).filter(p=>p.d<130).sort((a,b)=>a.d-b.d).slice(0,limit).map(p=>p.lane);
@@ -43,7 +43,7 @@ export function createPedestrianSystem(scene,district){
         p.g.rotation.y+=delta*(1-Math.exp(-dt*4));
         p.walk+=(Number(moving&&p.pause===0)*.7-p.walk)*(1-Math.exp(-dt*7));
         // Animate less frequently in the distance; position remains frame-smooth.
-        if(distance<45||Math.floor(time*12)!==p.lastPose){p.g.userData.pose(time*p.speed+p.phase,p.walk,0);p.lastPose=Math.floor(time*12);}
+        if(distance<45||Math.floor(time*12)!==p.lastPose){p.g.userData.pose?.(time*p.speed+p.phase,p.walk,0);p.lastPose=Math.floor(time*12);}
         place(p);
       }
     },
