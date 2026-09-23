@@ -1,0 +1,47 @@
+name: Town10 Extract
+
+on:
+  push:
+    branches:
+      - town10-extract-work
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install 3D tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy open3d trimesh fast-simplification
+
+      - name: Download CARLA Town10 UE5 point cloud
+        run: |
+          mkdir -p Town10HD_Opt
+          curl -L --fail --retry 4             'https://huggingface.co/datasets/AutowareFoundation/carla-ue5-maps/resolve/main/autoware_maps/Town10HD_Opt/pointcloud_map.pcd?download=true'             -o Town10HD_Opt/pointcloud_map.pcd
+          sha256sum Town10HD_Opt/pointcloud_map.pcd
+          ls -lh Town10HD_Opt/pointcloud_map.pcd
+
+      - name: Extract best compact city block
+        env:
+          TOWN10_PCD: Town10HD_Opt/pointcloud_map.pcd
+          TOWN10_OUT: town10-extract
+        run: |
+          python tools/town10_extract.py
+          ls -lh town10-extract
+          sha256sum town10-extract/*
+
+      - name: Upload optimized district
+        uses: actions/upload-artifact@v4
+        with:
+          name: town10-best-block
+          path: town10-extract/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
